@@ -1,3 +1,4 @@
+"""Miscellaneous utilities - dependent on utils0/1."""
 ############################################################
 # Program is part of MintPy                                #
 # Copyright (c) 2013, Zhang Yunjun, Heresh Fattahi         #
@@ -303,7 +304,7 @@ def transect_yx(z, atr, start_yx, end_yx, interpolation='nearest'):
     # for nearest neighbor sampling, use indexing directly
     # for other interpolation, use scipy.ndimage.map_coordinates
     if interpolation == 'nearest':
-        z_line = z[np.rint(ys).astype(np.int), np.rint(xs).astype(np.int)]
+        z_line = z[np.rint(ys).astype(int), np.rint(xs).astype(int)]
 
     else:
         # interpolation name to order
@@ -324,10 +325,13 @@ def transect_yx(z, atr, start_yx, end_yx, interpolation='nearest'):
     earth_radius = 6.3781e6    # in meter
     dist_unit = 'm'
     if 'Y_FIRST' in atr.keys():
-        [lat0, lat1] = coordinate(atr).yx2lalo([y0, y1], coord_type='y')
-        lat_c = (lat0 + lat1) / 2.
-        x_step = float(atr['X_STEP']) * np.pi/180.0 * earth_radius * np.cos(lat_c * np.pi/180)
-        y_step = float(atr['Y_STEP']) * np.pi/180.0 * earth_radius
+        y_step = float(atr['Y_STEP'])
+        x_step = float(atr['X_STEP'])
+        if not atr.get('UTM_ZONE', None):   # WGS84 lat/lon
+            [lat0, lat1] = coordinate(atr).yx2lalo([y0, y1], [x0, x1])[0]
+            lat_c = (lat0 + lat1) / 2.
+            y_step *= np.pi/180.0 * earth_radius
+            x_step *= np.pi/180.0 * earth_radius * np.cos(lat_c * np.pi/180)
     else:
         try:
             x_step = range_ground_resolution(atr)
@@ -357,8 +361,8 @@ def transect_yx(z, atr, start_yx, end_yx, interpolation='nearest'):
 def transect_lalo(z, atr, start_lalo, end_lalo, interpolation='nearest'):
     """Extract 2D matrix (z) value along the line [start_lalo, end_lalo]"""
     coord = coordinate(atr)
-    [y0, y1] = coord.lalo2yx([start_lalo[0], end_lalo[0]], coord_type='lat')
-    [x0, x1] = coord.lalo2yx([start_lalo[1], end_lalo[1]], coord_type='lon')
+    [y0, y1], [x0, x1] = coord.lalo2yx([start_lalo[0], end_lalo[0]],
+                                       [start_lalo[1], end_lalo[1]])
     transect = transect_yx(z, atr, [y0, x0], [y1, x1], interpolation)
     return transect
 
@@ -464,8 +468,8 @@ def prepare_geo_los_geometry(geom_file, unit='rad'):
         E = W + x_step * width
 
         # SNWE in meter --> degree
-        lat0, lon0 = to_latlon(atr['OG_FILE_PATH'], W, N)
-        lat1, lon1 = to_latlon(atr['OG_FILE_PATH'], E, S)
+        lat0, lon0 = utm2latlon(atr, W, N)
+        lat1, lon1 = utm2latlon(atr, E, S)
         lat_step = (lat1 - lat0) / length
         lon_step = (lon1 - lon0) / width
 

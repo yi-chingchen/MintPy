@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+"""Ionospheric mapping functions."""
 ############################################################
 # Program is part of MintPy                                #
 # Copyright (c) 2013, Zhang Yunjun, Heresh Fattahi         #
@@ -198,7 +198,7 @@ def incidence_angle_ground2iono(inc_angle, iono_height=450e3):
 def lalo_ground2iono(lat, lon, inc_angle, az_angle=None, head_angle=None, iono_height=450e3, method='spherical_distance'):
     """Calculate lat/lon of IPP with the given lat/lon on the ground and LOS geometry
 
-    Equation (12) in Yunjun et al. (2021, TGRS).
+    Equation (12) in Yunjun et al. (2022, TGRS).
 
     Parameters: lat/lon      - float, latitude/longitude of the point on the ground in degrees
                 inc_angle    - float/np.ndarray, incidence angle of the line-of-sight vector on the ground in degrees
@@ -223,6 +223,9 @@ def lalo_ground2iono(lat, lon, inc_angle, az_angle=None, head_angle=None, iono_h
     if az_angle is None:
         raise ValueError('az_angle can not be None!')
 
+    # In spherical coordinate system, given the starting lat/lon, angular distance and azimuth angle
+    #   calculate the ending lat/lon.
+    #
     # option 1 - spherical_distance
     # link:
     #   https://gis.stackexchange.com/questions/5821 [there is a typo there]
@@ -535,7 +538,7 @@ def read_sub_tec(tec_file, version=2.1, print_msg=True):
 
 def check_date_list_against_reference(date_list, dset_list, date_list_ref, fill_value=np.nan):
     """Check input date/dset_list against the reference date list:
-    1. remove dates that are not existed in the reference date list
+    1. remove dates that are not existing in the reference date list
     2. fill data of the missing dates
     """
     # remove dates not in date_list_ref

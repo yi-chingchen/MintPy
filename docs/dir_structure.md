@@ -285,22 +285,22 @@ The corresponding template options for `load_data`:
 
 ```cfg
 mintpy.load.processor        = isce
-##NOTE: 150408 is the reference date of alosStack processing.
-##      (parameter "reference date of the stack" of alosStack input xml file)
+## NOTE: 150408 is the reference date of alosStack processing.
+##       (parameter "reference date of the stack" of alosStack input xml file)
 ##---------for ISCE only:
-mintpy.load.metaFile         = $DATA_DIR/NCalAlos2DT169/pairs/*-*/150408.track.xml
+mintpy.load.metaFile         = $DATA_DIR/NCalAlos2DT169/dates_res*/150408/150408.track.xml
 mintpy.load.baselineDir      = $DATA_DIR/NCalAlos2DT169/baseline
 ##---------interferogram datasets:
 mintpy.load.unwFile          = $DATA_DIR/NCalAlos2DT169/pairs/*-*/insar/filt_*-*_5rlks_28alks.unw
 mintpy.load.corFile          = $DATA_DIR/NCalAlos2DT169/pairs/*-*/insar/*-*_5rlks_28alks.cor
 mintpy.load.connCompFile     = $DATA_DIR/NCalAlos2DT169/pairs/*-*/insar/filt_*-*_5rlks_28alks.unw.conncomp
 ##---------geometry datasets:
-mintpy.load.demFile          = $DATA_DIR/NCalAlos2DT169/dates_resampled/150408/insar/*_5rlks_28alks.hgt
-mintpy.load.lookupYFile      = $DATA_DIR/NCalAlos2DT169/dates_resampled/150408/insar/*_5rlks_28alks.lat
-mintpy.load.lookupXFile      = $DATA_DIR/NCalAlos2DT169/dates_resampled/150408/insar/*_5rlks_28alks.lon
-mintpy.load.incAngleFile     = $DATA_DIR/NCalAlos2DT169/dates_resampled/150408/insar/*_5rlks_28alks.los
-mintpy.load.azAngleFile      = $DATA_DIR/NCalAlos2DT169/dates_resampled/150408/insar/*_5rlks_28alks.los
-mintpy.load.waterMaskFile    = $DATA_DIR/NCalAlos2DT169/dates_resampled/150408/insar/*_5rlks_28alks.wbd
+mintpy.load.demFile          = $DATA_DIR/NCalAlos2DT169/dates_res*/150408/insar/*_5rlks_28alks.hgt
+mintpy.load.lookupYFile      = $DATA_DIR/NCalAlos2DT169/dates_res*/150408/insar/*_5rlks_28alks.lat
+mintpy.load.lookupXFile      = $DATA_DIR/NCalAlos2DT169/dates_res*/150408/insar/*_5rlks_28alks.lon
+mintpy.load.incAngleFile     = $DATA_DIR/NCalAlos2DT169/dates_res*/150408/insar/*_5rlks_28alks.los
+mintpy.load.azAngleFile      = $DATA_DIR/NCalAlos2DT169/dates_res*/150408/insar/*_5rlks_28alks.los
+mintpy.load.waterMaskFile    = $DATA_DIR/NCalAlos2DT169/dates_res*/150408/insar/*_5rlks_28alks.wbd
 ```
 
 ### ARIA from [ARIA-tools](https://github.com/aria-tools/ARIA-tools) ###
@@ -386,7 +386,11 @@ mintpy.load.waterMaskFile    = $DATA_DIR/SanFranSenDT42/mask/watermask.msk
 
 2. Clip DEM and all interferograms to the same area using hyp3lib/[cutGeotiffs.py](https://github.com/ASFHyP3/hyp3-lib/blob/develop/hyp3lib/cutGeotiffs.py) script.
 
-Here is an example workflow: [smallbaselineApp_hyp3](https://nbviewer.jupyter.org/github/insarlab/MintPy-tutorial/blob/main/smallbaselineApp_hyp3.ipynb).
+Here is an example workflow: [smallbaselineApp_hyp3](https://nbviewer.org/github/insarlab/MintPy-tutorial/blob/main/workflows/smallbaselineApp_hyp3.ipynb).
+
+HyP3 produces two types of InSAR products: 1) scene-wide products using Gamma and 2) burst-wide products using ISCE2.
+
++ INSAR_GAMMA directory structure:
 
 ```
 $DATA_DIR/RidgecrestSenDT71
@@ -408,6 +412,30 @@ $DATA_DIR/RidgecrestSenDT71
 │   └── ...
 └── mintpy
     └── RidgecrestSenDT71.txt
+```
+
++ INSAR_ISCE2_BURST directory structure:
+
+```
+$DATA_DIR/MtEdgecumbeSenAT174
+├── hyp3
+│   ├── S1_372326_IW3_20141017_20141110_VV_INT80_7044
+│   │   ├── S1_372326_IW3_20141017_20141110_VV_INT80_7044_dem_clipped.tif
+│   │   ├── S1_372326_IW3_20141017_20141110_VV_INT80_7044_corr_clipped.tif
+│   │   ├── S1_372326_IW3_20141017_20141110_VV_INT80_7044_lv_theta_clipped.tif
+│   │   ├── S1_372326_IW3_20141017_20141110_VV_INT80_7044_lv_phi_clipped.tif
+│   │   ├── S1_372326_IW3_20141017_20141110_VV_INT80_7044_unw_phase_clipped.tif
+│   │   ├── S1_372326_IW3_20141017_20141110_VV_INT80_7044_water_mask_clipped.tif
+│   │   ├── S1_372326_IW3_20141017_20141110_VV_INT80_7044.txt
+│   │   └── ...
+│   ├── S1_372326_IW3_20141110_20141204_VV_INT80_1894
+│   │   ├── S1_372326_IW3_20141110_20141204_VV_INT80_1894_corr_clipped.tif
+│   │   ├── S1_372326_IW3_20141110_20141204_VV_INT80_1894_unw_phase_clipped.tif
+│   │   ├── S1_372326_IW3_20141110_20141204_VV_INT80_1894.txt
+│   │   └── ...
+│   └── ...
+└── mintpy
+    └── MtEdgecumbeSenAT174.txt
 ```
 
 The corresponding template options for `load_data`:
@@ -451,7 +479,7 @@ $DATA_DIR/StHelensEnvDT156
     └── StHelensEnvDT156.txt
 ```
 
-The corresponding template opptions for `load_data`:
+The corresponding template options for `load_data`:
 
 ```cfg
 ## manually specify the following attributes since they are missing from gmtsar products

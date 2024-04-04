@@ -1,17 +1,18 @@
+"""Utilities wrapped around ISCE."""
 ############################################################
 # Program is part of MintPy                                #
 # Copyright (c) 2013, Zhang Yunjun, Heresh Fattahi         #
 # Author: Zhang Yunjun, Heresh Fattahi, Apr 2020           #
 ############################################################
-# 2020-07: Talib Oliver-Cabrera, add UAVSAR support w/in stripmapStack
+# 2020-07: Talib Oliver-Cabrera, add UAVSAR support
 # 2020-10: Cunren Liang, add alosStack support
 # 2022-06: Yujie Zheng, add standard processing from isce2
 # Group contents:
-#     metadata
-#     geometry
-#     baseline
-#     multilook
-#     miscellaneous
+#   metadata
+#   geometry
+#   baseline
+#   multilook
+#   miscellaneous
 # Recommend import:
 #   from mintpy.utils import isce_utils
 
@@ -46,23 +47,23 @@ def get_processor(meta_file):
     """
     Get the name of ISCE processor (imaging mode)
     """
-    meta_dir = os.path.dirname(meta_file)
+    meta_dir = os.path.dirname(os.path.abspath(meta_file))
     tops_meta_file = os.path.join(meta_dir, 'IW*.xml')
+    alos_meta_file = os.path.join(meta_dir, '*.track.xml')
     stripmap_meta_files = [os.path.join(meta_dir, i) for i in ['data.db', 'data.dat', 'data']]
-    alosStack_meta_frame_files = glob.glob(os.path.join(meta_dir, 'f1_*', '*.frame.xml'))
 
     processor = None
     if len(glob.glob(tops_meta_file)) > 0:
         # topsStack
         processor = 'tops'
 
+    elif len(glob.glob(alos_meta_file)) > 0:
+        # alosStack / alos2App
+        processor = 'alosStack'
+
     elif any(os.path.isfile(i) for i in stripmap_meta_files):
         # stripmapStack
         processor = 'stripmap'
-
-    elif alosStack_meta_frame_files != []:
-        # alosStack
-        processor = 'alosStack'
 
     elif meta_file.endswith('.xml'):
         # stripmapApp
@@ -291,6 +292,12 @@ def extract_alosStack_metadata(meta_file, geom_dir):
     import isceobj
     from isceobj.Planet.Planet import Planet
 
+    # default geom_dir
+    if not geom_dir:
+        geom_dir_cand = os.path.join(os.path.dirname(meta_file), 'insar')
+        if os.path.isdir(geom_dir_cand):
+            geom_dir = geom_dir_cand
+
     track = load_track(os.path.dirname(meta_file), dateStr=os.path.basename(meta_file).strip('.track.xml'))
     rlooks, alooks, width, length = extract_image_size_alosStack(geom_dir)
     spotlightModes, stripmapModes, scansarNominalModes, scansarWideModes, scansarModes = alos2_acquisition_modes()
@@ -359,29 +366,42 @@ def extract_alosStack_metadata(meta_file, geom_dir):
     meta['azimuthPixelSize'] *= meta['ALOOKS']
 
     # LAT/LON_REF1/2/3/4
+    lat_files = glob.glob(os.path.join(geom_dir, f'*_{rlooks}rlks_{alooks}alks.lat'))
+    if len(lat_files) > 0:
+        # geometry files from alosStack
+        lat_files = glob.glob(os.path.join(geom_dir, f'*_{rlooks}rlks_{alooks}alks.lat'))
+        lon_files = glob.glob(os.path.join(geom_dir, f'*_{rlooks}rlks_{alooks}alks.lon'))
+        los_files = glob.glob(os.path.join(geom_dir, f'*_{rlooks}rlks_{alooks}alks.los'))
+    else:
+        # geometry files from alos2App / dense offset, which are then multilooked by mintpy
+        lat_files = [os.path.join(geom_dir, 'lat.rdr.mli')]
+        lon_files = [os.path.join(geom_dir, 'lon.rdr.mli')]
+        los_files = [os.path.join(geom_dir, 'los.rdr.mli')]
+
     edge = 3
-    lat_file = glob.glob(os.path.join(geom_dir, f'*_{rlooks}rlks_{alooks}alks.lat'))[0]
     img = isceobj.createImage()
-    img.load(lat_file+'.xml')
+    img.load(lat_files[0] + '.xml')
     width = img.width
     length = img.length
-    data = np.memmap(lat_file, dtype='float64', mode='r', shape=(length, width))
+
+    data = np.memmap(lat_files[0], dtype='float64', mode='r', shape=(length, width))
     meta['LAT_REF1'] = str(data[ 0+edge,  0+edge])
     meta['LAT_REF2'] = str(data[ 0+edge, -1-edge])
     meta['LAT_REF3'] = str(data[-1-edge,  0+edge])
     meta['LAT_REF4'] = str(data[-1-edge, -1-edge])
 
-    lon_file = glob.glob(os.path.join(geom_dir, f'*_{rlooks}rlks_{alooks}alks.lon'))[0]
-    data = np.memmap(lon_file, dtype='float64', mode='r', shape=(length, width))
+    data = np.memmap(lon_files[0], dtype='float64', mode='r', shape=(length, width))
     meta['LON_REF1'] = str(data[ 0+edge,  0+edge])
     meta['LON_REF2'] = str(data[ 0+edge, -1-edge])
     meta['LON_REF3'] = str(data[-1-edge,  0+edge])
     meta['LON_REF4'] = str(data[-1-edge, -1-edge])
 
-    los_file = glob.glob(os.path.join(geom_dir, f'*_{rlooks}rlks_{alooks}alks.los'))[0]
-    data = np.memmap(los_file, dtype='float32', mode='r', shape=(length*2, width))[0:length*2:2, :]
-    inc_angle = data[int(length/2), int(width/2)]
-    meta['CENTER_INCIDENCE_ANGLE'] = str(inc_angle)
+    # CENTER_INCIDENCE_ANGLE is optional
+    if len(los_files) > 0:
+        # use readfile.read() instead of np.memmap() to better handle different interleaves
+        data = readfile.read(los_files[0], datasetName='incidenceAngle')[0]
+        inc_angle = data[int(length/2), int(width/2)]
+        meta['CENTER_INCIDENCE_ANGLE'] = str(inc_angle)
 
     pointingDirection = {'right': -1, 'left' :1}
     meta['ANTENNA_SIDE'] = str(pointingDirection[track.pointingDirection])
@@ -395,29 +415,40 @@ def alos2_acquisition_modes():
     '''
 
     spotlightModes = ['SBS']
+    # StripMap: Ultrafine [3 m], High sensitive [6 m], Fine [10 m]
     stripmapModes = ['UBS', 'UBD', 'HBS', 'HBD', 'HBQ', 'FBS', 'FBD', 'FBQ']
     scansarNominalModes = ['WBS', 'WBD', 'WWS', 'WWD']
     scansarWideModes = ['VBS', 'VBD']
-    scansarModes = ['WBS', 'WBD', 'WWS', 'WWD', 'VBS', 'VBD']
+    scansarModes = scansarNominalModes + scansarWideModes
 
     return (spotlightModes, stripmapModes, scansarNominalModes, scansarWideModes, scansarModes)
 
 
 def extract_image_size_alosStack(geom_dir):
-    import isce
-    import isceobj
 
     # grab the number of looks in azimuth / range direction
-    lats = glob.glob(os.path.join(geom_dir, '*_*rlks_*alks.lat'))
-    rlooks = max(int(os.path.splitext(os.path.basename(x))[0].split('_')[1].strip('rlks')) for x in lats)
-    alooks = max(int(os.path.splitext(os.path.basename(x))[0].split('_')[2].strip('alks')) for x in lats)
+    lat_files = glob.glob(os.path.join(geom_dir, '*_*rlks_*alks.lat'))
+    lat_xml_files = [os.path.join(geom_dir, f'lat.rdr{x}.xml') for x in ['', '.mli']]
+    lat_xml_files = [x for x in lat_xml_files if os.path.exists(x)]
+    if len(lat_files) > 0:
+        # alosStack for InSAR
+        rlooks = max(int(os.path.splitext(os.path.basename(x))[0].split('_')[1].strip('rlks')) for x in lat_files)
+        alooks = max(int(os.path.splitext(os.path.basename(x))[0].split('_')[2].strip('alks')) for x in lat_files)
+        lat_xml_file = glob.glob(os.path.join(geom_dir, f'*_{rlooks}rlks_{alooks}alks.lat.xml'))[0]
+    elif len(lat_xml_files) == 2:
+        # alos2App for dense offset, which are multilooked by mintpy
+        meta_ori = readfile.read_isce_xml(lat_xml_files[0])
+        meta_mli = readfile.read_isce_xml(lat_xml_files[1])
+        rlooks = int(np.floor( int(meta_ori['WIDTH']) / int(meta_mli['WIDTH']) ))
+        alooks = int(np.floor( int(meta_ori['LENGTH']) / int(meta_mli['LENGTH']) ))
+        lat_xml_file = lat_xml_files[1]
+    else:
+        raise ValueError(f'Un-recognized lookup table files in directory: {geom_dir}!')
 
     # grab the number of rows / coluns
-    lat = glob.glob(os.path.join(geom_dir, f'*_{rlooks}rlks_{alooks}alks.lat'))[0]
-    img = isceobj.createImage()
-    img.load(lat+'.xml')
-    width = img.width
-    length = img.length
+    meta_mli = readfile.read_isce_xml(lat_xml_file)
+    width = int(meta_mli['WIDTH'])
+    length = int(meta_mli['LENGTH'])
 
     return (rlooks, alooks, width, length)
 
@@ -445,21 +476,30 @@ def load_track(trackDir, dateStr):
 
 #####################################  geometry  #######################################
 def extract_multilook_number(geom_dir, meta=dict(), fext_list=['.rdr','.geo','.rdr.full','.geo.full']):
-    for fbase in ['hgt','lat','lon','los']:
+    for fbase in ['hgt','lat','lon','los','shadowMask']:
         fbase = os.path.join(geom_dir, fbase)
+
+        # get the file name of the geometry file of interest
         for fext in fext_list:
             fnames = glob.glob(fbase+fext)
             if len(fnames) > 0:
-                break
+                fname = fnames[0]
 
-        if len(fnames) > 0:
-            fullXmlFile = f'{fnames[0]}.full.xml'
-            if os.path.isfile(fullXmlFile):
-                fullXmlDict = readfile.read_isce_xml(fullXmlFile)
-                xmlDict = readfile.read_attribute(fnames[0])
-                meta['ALOOKS'] = int(int(fullXmlDict['LENGTH']) / int(xmlDict['LENGTH']))
-                meta['RLOOKS'] = int(int(fullXmlDict['WIDTH']) / int(xmlDict['WIDTH']))
-                break
+                # get the file name of the full resolution metadata file
+                full_meta_files = [f'{fname}.full.xml', f'{fname}.full.vrt']
+                full_meta_files = [x for x in full_meta_files if os.path.isfile(x)]
+                if len(full_meta_files) > 0:
+                    full_meta_file = full_meta_files[0]
+
+                    # calc A/RLOOKS
+                    if full_meta_file.endswith('.xml'):
+                        full_dict = readfile.read_isce_xml(full_meta_file)
+                    else:
+                        full_dict = readfile.read_gdal_vrt(full_meta_file)
+                    mli_dict = readfile.read_attribute(fname)
+                    meta['ALOOKS'] = int(int(full_dict['LENGTH']) / int(mli_dict['LENGTH']))
+                    meta['RLOOKS'] = int(int(full_dict['WIDTH']) / int(mli_dict['WIDTH']))
+                    break
 
     # default value
     for key in ['ALOOKS', 'RLOOKS']:
@@ -705,7 +745,7 @@ def multilook_number2resolution(meta_file, az_looks, rg_looks):
 
 def resolution2multilook_number(meta_file, resolution):
     """
-    Calculate multilook number for InSAR processing given a disired output resolution on the ground
+    Calculate multilook number for InSAR processing given a desired output resolution on the ground
 
     Parameters: meta_file   : str, path of ISCE metadata file, i.e. IW1.xml, data.dat
                 resolution  : float, target output resolution on the ground in meters
@@ -763,6 +803,8 @@ def get_full_resolution(meta_file):
     # calculate the full azimuth/range ground resolution
     az_pixel_size = float(meta['AZIMUTH_PIXEL_SIZE'])  #azimuth pixel size on the orbit
     rg_pixel_size = float(meta['RANGE_PIXEL_SIZE'])    #range   pixel size in LOS direction
+    az_pixel_size /= int(meta.get('ALOOKS', 1))
+    rg_pixel_size /= int(meta.get('RLOOKS', 1))
 
     height = float(meta['HEIGHT'])
     inc_angle = ut.incidence_angle(meta, dimension=0)
@@ -796,7 +838,7 @@ def get_IPF(proj_dir, ts_file):
     # reference date
     m_date = [i for i in date_list if not os.path.isdir(os.path.join(s_dir, i))][0]
 
-    # grab IPF numver
+    # grab IPF number
     IPF_IW1, IPF_IW2, IPF_IW3 = [], [], []
     prog_bar = ptime.progressBar(maxValue=num_date)
     for i in range(num_date):
@@ -890,10 +932,10 @@ def get_sensing_datetime_list(proj_dir, date_list=None):
 ############################## Standard Processing ###########################################
 
 def gaussian_kernel(sx, sy, sig_x, sig_y):
-    '''Generate a guassian kernal (with all elements sum to 1).
+    '''Generate a Gaussian kernel (with all elements sum to 1).
 
-    Parameters: sx/y    - int, dimensions of kernal
-                sig_x/y - float, standard deviation of the guassian distribution
+    Parameters: sx/y    - int, dimensions of kernel
+                sig_x/y - float, standard deviation of the Gaussian distribution
     '''
     # ensure sx/y are odd number
     sx += 1 if np.mod(sx, 2) == 0 else 0
@@ -924,6 +966,51 @@ def convolve(data, kernel):
     real = ndimage.convolve(data.real, kernel, mode='constant', cval=0.0)
     imag = ndimage.convolve(data.imag, kernel, mode='constant', cval=0.0)
     return real + 1J * imag
+
+
+def filter_goldstein(int_file, filt_file, filt_strength=0.2):
+    """Filter wrapped interferogram with the power-spectral filter via isce2.
+
+    Modified from ISCE-2/topsStack/FilterAndCoherence.py
+    Reference: Goldstein, R. M., & Werner, C. L. (1998). Radar interferogram
+        filtering for geophysical applications. Geophysical Research Letters,
+        25(21), 4035-4038. doi:10.1029/1998GL900033
+
+    Parameters: int_file      - str, path of wrapped interferogram
+                filt_file     - str, path of filtered wrapped interferogram
+                filt_strength - float, filtering strength between 0 and 1
+    Returns:    filt_file     - str, path of filtered wrapped interferogram
+    """
+
+    import isce
+    import isceobj
+    from mroipac.filter.Filter import Filter
+    print(f"Applying power-spectral filter (strength={filt_strength})...")
+
+    # initialize the flattened interferogram
+    int_img = isceobj.createIntImage()
+    int_img.load(int_file + '.xml')
+    int_img.setAccessMode('read')
+    int_img.createImage()
+
+    # create the filtered interferogram
+    filt_img = isceobj.createIntImage()
+    filt_img.setFilename(filt_file)
+    filt_img.setWidth(int_img.getWidth())
+    filt_img.setAccessMode('write')
+    filt_img.createImage()
+
+    # filter
+    filt_obj = Filter()
+    filt_obj.wireInputPort(name='interferogram', object=int_img)
+    filt_obj.wireOutputPort(name='filtered interferogram', object=filt_img)
+    filt_obj.goldsteinWerner(alpha=filt_strength)
+
+    # close
+    int_img.finalizeImage()
+    filt_img.finalizeImage()
+
+    return filt_file
 
 
 def estimate_coherence(intfile, corfile):
@@ -969,7 +1056,7 @@ def estimate_coherence(intfile, corfile):
     return
 
 
-def unwrap_snaphu(int_file, cor_file, unw_file, defo_max=2.0, max_comp=32,
+def unwrap_snaphu(int_file, cor_file, unw_file, max_defo=2.0, max_comp=32,
                   init_only=True, init_method='MCF', cost_mode='SMOOTH'):
     '''Unwrap interferograms using SNAPHU via isce2.
 
@@ -996,9 +1083,9 @@ def unwrap_snaphu(int_file, cor_file, unw_file, defo_max=2.0, max_comp=32,
         cost_mode = 'DEFO'
 
     Parameters: int_file    - str, path to the wrapped interferogram file
-                cor_file    - str, path to the correlation file
+                cor_file    - str, path to the correlation file: phase sigma or complex correlation
                 unw_file    - str, path to the output unwrapped interferogram file
-                defo_max    - float, maximum number of cycles for the deformation phase
+                max_defo    - float, maximum number of cycles for the deformation phase
                 max_comp    - int, maximum number of connected components
                 init_only   - bool, initlize-only mode
                 init_method - str, algo used for initialization: MCF, MST
@@ -1036,8 +1123,11 @@ def unwrap_snaphu(int_file, cor_file, unw_file, defo_max=2.0, max_comp=32,
     snp.setInput(int_file)
     snp.setOutput(unw_file)
     snp.setCorrfile(cor_file)
-    snp.setCorFileFormat('FLOAT_DATA')
     snp.setWidth(width)
+
+    atr_cor = readfile.read_attribute(cor_file)
+    if int(atr_cor.get('BANDS', 1)) == 1:
+        snp.setCorFileFormat('FLOAT_DATA')
 
     # runtime options
     snp.setCostMode(cost_mode)
@@ -1054,7 +1144,7 @@ def unwrap_snaphu(int_file, cor_file, unw_file, defo_max=2.0, max_comp=32,
     snp.setCorrLooks(corr_looks)
 
     # deformation mode parameters
-    snp.setDefoMaxCycles(defo_max)
+    snp.setDefoMaxCycles(max_defo)
 
     # connected component control
     # grow connectedc components if init_only is True
@@ -1088,6 +1178,61 @@ def unwrap_snaphu(int_file, cor_file, unw_file, defo_max=2.0, max_comp=32,
         atr['INTERLEAVE'] = 'BIP'
         atr['BANDS'] = '1'
         writefile.write_isce_xml(atr, f'{unw_file}.conncomp')
+
+    # time usage
+    m, s = divmod(time.time() - start_time, 60)
+    print(f'time used: {m:02.0f} mins {s:02.1f} secs.')
+
+    return unw_file
+
+
+def unwrap_icu(int_file, unw_file):
+    """Unwrap interferograms using ICU via isce2.
+
+    Modified from ISCE-2/topsStack/unwrap.py.
+    Parameters: int_file - str, path of   wrapped interferogram
+                unw_file - str, path of unwrapped interferogram
+    Returns:    unw_file - str, path of unwrapped interferogram
+    """
+    import isce
+    import isceobj
+    from mroipac.icu.Icu import Icu
+
+    start_time = time.time()
+
+    # get width
+    img = isceobj.Image.createImage()
+    img.load(int_file + '.xml')
+    width = img.getWidth()
+
+    # create image object for .int file
+    int_img = isceobj.Image.createIntImage()
+    int_img.initImage(int_file, 'read', width)
+    int_img.createImage()
+
+    # create image object for .unw file
+    unw_img = isceobj.Image.createImage()
+    unw_img.setFilename(unw_file)
+    unw_img.setWidth(width)
+    unw_img.imageType = 'unw'
+    unw_img.bands = 2
+    unw_img.scheme = 'BIL'
+    unw_img.dataType = 'FLOAT'
+    unw_img.setAccessMode('write')
+    unw_img.createImage()
+
+    # run ICU
+    icu_obj = Icu()
+    icu_obj.filteringFlag = False
+    icu_obj.useAmplitudeFlag = False
+    icu_obj.singlePatch = True
+    icu_obj.initCorrThresdhold = 0.1
+    icu_obj.icu(intImage=int_img, unwImage=unw_img)
+
+    int_img.finalizeImage()
+    unw_img.finalizeImage()
+    unw_img.renderHdr()
+    unw_img.renderVRT()
 
     # time usage
     m, s = divmod(time.time() - start_time, 60)

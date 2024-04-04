@@ -1,13 +1,15 @@
+"""Classes for HDF5/MintPy file creation / writing."""
 ############################################################
 # Program is part of MintPy                                #
 # Copyright (c) 2013, Zhang Yunjun, Heresh Fattahi         #
 # Author: Heresh Fattahi, Zhang Yunjun, 2017               #
 ############################################################
-# class used for data loading from InSAR stack to MintPy timeseries
 # Recommend import:
-#     from mintpy.objects.stackDict import (geometryDict,
-#                                           ifgramStackDict,
-#                                           ifgramDict)
+#   from mintpy.objects.stackDict import (
+#       geometryDict,
+#       ifgramStackDict,
+#       ifgramDict,
+#   )
 
 
 import os
@@ -412,7 +414,7 @@ class ifgramDict:
 ########################################################################################
 class geometryDict:
     """
-    Geometry object for Lat, Lon, Heigt, Incidence, Heading, Bperp, ... from the same platform and track.
+    Geometry object for Lat, Lon, Height, Incidence, Heading, Bperp, ... from the same platform and track.
 
     Example:
         from mintpy.utils import readfile
@@ -474,7 +476,7 @@ class geometryDict:
         if 'Y_FIRST' in self.extraMetadata.keys():
             # for dataset in geo-coordinates, use:
             # 1) incidenceAngle matrix if available OR
-            # 2) contant value from SLANT_RANGE_DISTANCE.
+            # 2) constant value from SLANT_RANGE_DISTANCE.
             ds_name = 'incidenceAngle'
             key = 'SLANT_RANGE_DISTANCE'
             if ds_name in self.dsNames:
@@ -489,7 +491,7 @@ class geometryDict:
                 data = ut.incidence_angle2slant_range_distance(self.extraMetadata, inc_angle)
 
             elif key in self.extraMetadata.keys():
-                print(f'geocoded input, use contant value from metadata {key}')
+                print(f'geocoded input, use constant value from metadata {key}')
                 length = int(self.extraMetadata['LENGTH'])
                 width = int(self.extraMetadata['WIDTH'])
                 range_dist = float(self.extraMetadata[key])
@@ -527,9 +529,9 @@ class geometryDict:
             return None
 
         if 'Y_FIRST' in self.extraMetadata.keys():
-            # for dataset in geo-coordinates, use contant value from INCIDENCE_ANGLE.
+            # for dataset in geo-coordinates, use constant value from INCIDENCE_ANGLE.
             key = 'INCIDENCE_ANGLE'
-            print(f'geocoded input, use contant value from metadata {key}')
+            print(f'geocoded input, use constant value from metadata {key}')
             if key in self.extraMetadata.keys():
                 length = int(self.extraMetadata['LENGTH'])
                 width = int(self.extraMetadata['WIDTH'])
@@ -749,7 +751,7 @@ class geometryDict:
                                           compression=compression)
 
             ###############################
-            # Generate Dataset if not existed in binary file: incidenceAngle, slantRangeDistance
+            # Generate Dataset if it doesn't exist as a binary file: incidenceAngle, slantRangeDistance
             for dsName in [i for i in ['incidenceAngle', 'slantRangeDistance'] if i not in self.dsNames]:
                 # Calculate data
                 data = None
@@ -911,7 +913,7 @@ class platformTrack:
 
         ##################
         # Despite the observation and quality files, the geometry may not exist
-        # for all pairs. Therfore we need to look at all pairs and get possible
+        # for all pairs. Therefore we need to look at all pairs and get possible
         # dataset names.
         self.dsetGeometryNames = []
         for pair in pairs:

@@ -1,15 +1,17 @@
-#!/usr/bin/env python3
+"""Simulate tropospheric turbulence."""
 ############################################################
 # Program is part of MintPy                                #
 # Copyright (c) 2013, Zhang Yunjun, Heresh Fattahi         #
 # Author: Zhang Yunjun, 2019                               #
 ############################################################
+# Recommend usage:
+#   from mintpy.simulation import fractal
 # This module is based on the matlab scripts written by
-# Ramon Hanssen, May 2000, available in the following website:
-#     http://doris.tudelft.nl/software/insarfractal.tar.gz
+#   Ramon Hanssen, May 2000, available at:
+#   http://doris.tudelft.nl/software/insarfractal.tar.gz
 # Reference:
-#   Hanssen, R. F. (2001), Radar interferometry: data interpretation
-# and error analysis, Kluwer Academic Pub, Dordrecht, Netherlands. Chap. 4.7.
+#   Hanssen, R. F. (2001), Radar interferometry: data interpretation and
+#   error analysis, Kluwer Academic Pub, Dordrecht, Netherlands. Chap. 4.7.
 
 
 import os
@@ -31,7 +33,7 @@ pyfftw.config.NUM_THREADS = NUM_THREADS
 
 def fractal_surface_atmos(shape=(128, 128), resolution=60., p0=1., freq0=1e-3,
                           regime=(0.001, 0.999, 1.00), beta=(5./3., 8./3., 2./3.)):
-    """Simulate an isotropic 2D fractal surface with a power law behavior, which cooresponds with the
+    """Simulate an isotropic 2D fractal surface with a power law behavior, which corresponds with the
     [-5/3, -8/3, -2/3] power law.
 
     E.g. equation (4.7.28) from Hanssen (2001):
@@ -119,7 +121,7 @@ def fractal_surface_atmos(shape=(128, 128), resolution=60., p0=1., freq0=1e-3,
     # get the fractal spectrum and transform to spatial domain
     Hfrac = np.divide(H, fraction)
     fsurf = pyfftw.interfaces.numpy_fft.ifft2(Hfrac)
-    fsurf = np.abs(fsurf, dtype=np.float32)
+    fsurf = np.abs(fsurf).astype(np.float32)
     fsurf -= np.mean(fsurf)
 
     # calculate the power spectral density of 1st realization
@@ -128,20 +130,20 @@ def fractal_surface_atmos(shape=(128, 128), resolution=60., p0=1., freq0=1e-3,
     # scale the spectrum to match the input power spectral density.
     Hfrac *= np.sqrt(p0/p1)
     fsurf = pyfftw.interfaces.numpy_fft.ifft2(Hfrac)
-    fsurf = np.abs(fsurf, dtype=np.float32)
+    fsurf = np.abs(fsurf).astype(np.float32)
     fsurf -= np.mean(fsurf)
     return fsurf
 
 
 def get_power_spectral_density(data, resolution=60., freq0=1e-3, display=False, outfig=None):
     """Get the radially averaged 1D spectrum (power density) of input 2D matrix
-    Check Table 4.5 in Hanssen, 2001 (Page 143) for explaination of outputs.
+    Check Table 4.5 in Hanssen, 2001 (Page 143) for explanation of outputs.
 
     Python translation of checkfr.m (Ramon Hanssen, 2000)
 
     Parameters: data       : 2D np.array (free from NaN value), displacement in m.
                 resolution : float, spatial resolution of input data in meters
-                freq0      : float, reference spatial freqency in cycle / m.
+                freq0      : float, reference spatial frequency in cycle / m.
                 display    : bool, display input data and its calculated 1D power spectrum
     Returns:    p0   : float, power spectral density at reference frequency in m^2
                 beta : float, slope of power profile in loglog scale
@@ -236,7 +238,7 @@ def power_slope(freq, psd, freq0=1e-3):
 
     Parameters: freq  : 1D / 2D np.array in cycle / m.
                 psd   : 1D / 2D np.array for the power spectral density
-                freq0 : reference freqency in cycle / m.
+                freq0 : reference frequency in cycle / m.
     Returns:    p0    : float, power spectral density at reference frequency
                         in the same unit as the input psd.
                 beta  : float, slope of power profile in loglog scale

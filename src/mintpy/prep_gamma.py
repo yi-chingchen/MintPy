@@ -70,7 +70,7 @@ def get_perp_baseline(m_par_file, s_par_file, off_file, atr_dict={}):
 
 def get_lalo_ref(m_par_file, atr_dict={}):
     """Extract LAT/LON_REF1/2/3/4 from corner file, e.g. 130118_4rlks.amp.corner.
-    If it's not existed, call Gamma script - SLC_corners - to generate it from SLC par file
+    If it does not exist, call Gamma script - SLC_corners - to generate it from SLC par file
         e.g. 130118_4rlks.amp.par
 
     Parameters: m_par_file - str, path, reference date parameter file, i.e. 130118_4rlks.amp.par
@@ -179,7 +179,7 @@ def extract_metadata4interferogram(fname, sensor_name=None):
         rg_pixel_size = float(atr['RANGE_PIXEL_SIZE']) / float(atr['RLOOKS'])
         rg_fact = rg_resolution / rg_pixel_size
 
-        antenna_length = sensor.SENSOR_DICT[sensor_name]['antenna_length']
+        antenna_length = sensor.SENSOR_DICT[sensor_name.lower()]['antenna_length']
         az_resolution = antenna_length / 2
         az_pixel_size = float(atr['AZIMUTH_PIXEL_SIZE']) / float(atr['ALOOKS'])
         az_fact = az_resolution / az_pixel_size
@@ -290,7 +290,7 @@ def extract_metadata4geometry_geo(fname):
     """
     # Get/read GAMMA par file
     ext = os.path.splitext(fname)[1]
-    if ext in ['.UTM_TO_RDC']:
+    if ext.lower().endswith(('to_rdc', '2_rdc', '2rdc')):
         par_file = os.path.splitext(fname)[0]+'.utm.dem.par'
     elif fname[0].endswith('.utm.dem'):
         par_file = fname+'.par'
@@ -341,10 +341,10 @@ def prep_gamma(inps):
     for fname in inps.file:
         # interferograms
         if inps.file_ext in ['.unw', '.cor', '.int']:
-            extract_metadata4interferogram(fname, sensor_name=inps.sensor.lower())
+            extract_metadata4interferogram(fname, sensor_name=inps.sensor)
 
         # geometry - geo
-        elif inps.file_ext in ['.UTM_TO_RDC'] or fname.endswith('.utm.dem'):
+        elif inps.file_ext.endswith(('to_rdc', '2_rdc', '2rdc')) or fname.endswith('.utm.dem'):
             extract_metadata4geometry_geo(fname)
 
         # geometry - radar

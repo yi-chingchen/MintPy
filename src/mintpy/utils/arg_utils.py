@@ -1,11 +1,12 @@
+"""Argument parsers."""
 #############################################################
 # Program is part of MintPy                                 #
 # Copyright (c) 2013, Zhang Yunjun, Heresh Fattahi          #
 # Author: Zhang Yunjun, Nov 2020                            #
 #############################################################
 # Recommend import:
-#     from mintpy.utils import arg_utils
-#     from mintpy.utils.arg_utils import create_argument_parser
+#   from mintpy.utils import arg_utils
+#   from mintpy.utils.arg_utils import create_argument_parser
 
 
 import argparse
@@ -65,6 +66,16 @@ def add_data_disp_argument(parser):
                       default=[-1.*math.pi, math.pi], metavar=('MIN', 'MAX'),
                       help='range of one cycle after wrapping (default: %(default)s).')
 
+    data.add_argument('--interp','--interpolation', dest='interpolation', default='nearest',
+                      help='matplotlib interpolation method for imshow, e.g.:\n'
+                           'none, antialiased, nearest, bilinear, bicubic, spline16, sinc, etc. Check more at:\n'
+                           'https://matplotlib.org/stable/gallery/images_contours_and_fields/'
+                           'interpolation_methods.html')
+    data.add_argument('--alpha', dest='transparency', type=float,
+                      help='Data transparency. \n'
+                           '0.0 - fully transparent, 1.0 - no transparency.')
+
+    # flip X/Y-axis
     data.add_argument('--flip-lr', dest='flip_lr',
                       action='store_true', help='flip left-right')
     data.add_argument('--flip-ud', dest='flip_ud',
@@ -72,6 +83,7 @@ def add_data_disp_argument(parser):
     data.add_argument('--noflip', dest='auto_flip', action='store_false',
                       help='turn off auto flip for radar coordinate file')
 
+    # multilook / average for data reduction
     data.add_argument('--nmli','--num-multilook','--multilook-num', dest='multilook_num',
                       type=int, default=1, metavar='NUM',
                       help='multilook data in X and Y direction with a factor for display '
@@ -81,9 +93,13 @@ def add_data_disp_argument(parser):
                            'If multilook is True and multilook_num=1, '
                            'multilook_num will be estimated automatically.\n'
                            'Useful when displaying big datasets.')
-    data.add_argument('--alpha', dest='transparency', type=float,
-                      help='Data transparency. \n'
-                           '0.0 - fully transparent, 1.0 - no transparency.')
+
+    # plot data in different styles: image, scatter, contour etc.
+    parser.add_argument('--style', dest='style', choices={'image', 'scatter'}, default='image',
+                        help='Plot data as image or scatter (default: %(default)s).')
+    parser.add_argument('--scatter-size', dest='scatter_marker_size', type=float, metavar='SIZE', default=10,
+                        help='Scatter marker size in points**2 (default: %(default)s).')
+
     return parser
 
 
@@ -98,33 +114,47 @@ def add_dem_argument(parser):
                      help='do not show DEM shaded relief')
     dem.add_argument('--dem-nocontour', dest='disp_dem_contour', action='store_false',
                      help='do not show DEM contour lines')
+    dem.add_argument('--dem-blend', dest='disp_dem_blend', action='store_true',
+                     help='blend the DEM shade with input image to have a GMT-like impression.')
 
-    dem.add_argument('--contour-smooth', dest='dem_contour_smooth', type=float, default=3.0,
-                     help='Background topography contour smooth factor - sigma of Gaussian filter. \n'
+    # DEM contours
+    dem.add_argument('--contour-smooth', dest='dem_contour_smooth', type=float, default=3.0, metavar='NUM',
+                     help='[Contour] Topography contour smooth factor - sigma of Gaussian filter. \n'
                           'Set to 0.0 for no smoothing; (default: %(default)s).')
     dem.add_argument('--contour-step', dest='dem_contour_step', metavar='NUM', type=float, default=200.0,
-                     help='Background topography contour step in meters (default: %(default)s).')
+                     help='[Contour] Topography contour step in meters (default: %(default)s).')
     dem.add_argument('--contour-lw','--contour-linewidth', dest='dem_contour_linewidth',
                      metavar='NUM', type=float, default=0.5,
-                     help='Background topography contour linewidth (default: %(default)s).')
+                     help='[Contour] Topography contour linewidth (default: %(default)s).')
 
+    # DEM shade
     dem.add_argument('--shade-az', dest='shade_azdeg', type=float, default=315., metavar='DEG',
-                     help='The azimuth (0-360, degrees clockwise from North) of the light source '
+                     help='[Shade] Azimuth angle (0-360, degrees clockwise from North) of the light source '
                           '(default: %(default)s).')
     dem.add_argument('--shade-alt', dest='shade_altdeg', type=float, default=45., metavar='DEG',
-                     help='The altitude (0-90, degrees up from horizontal) of the light source '
+                     help='[Shade] Altitude (0-90, degrees up from horizontal) of the light source '
                           '(default: %(default)s).')
-
     dem.add_argument('--shade-min', dest='shade_min', type=float, default=-4000., metavar='MIN',
-                     help='The min height in m of colormap of shaded relief topography (default: %(default)s).')
+                     help='[Shade] Minimum height of shaded relief topography (default: %(default)s m).')
     dem.add_argument('--shade-max', dest='shade_max', type=float, default=999., metavar='MAX',
-                     help='The max height of colormap of shaded relief topography (default: max(DEM)+2000).')
-    dem.add_argument('--shade-exag', dest='shade_exag', type=float, default=0.5,
-                     help='Vertical exaggeration ratio (default: %(default)s).')
+                     help='[Shade] Maximum height of shaded relief topography (default: max(DEM)+2000 m).')
+    dem.add_argument('--shade-exag', dest='shade_exag', type=float, default=0.5,  metavar='NUM',
+                     help='[Shade] Vertical exaggeration ratio (default: %(default)s).')
+
+    # DEM-blended image
+    dem.add_argument('--shade-frac', dest='shade_frac', type=float, default=0.5, metavar='NUM',
+                     help='[Blend] Increases/decreases the contrast of the hillshade (default: %(default)s).')
+    dem.add_argument('--base-color', dest='base_color', type=float, default=0.7, metavar='NUM',
+                     help='[Blend] Topograhpy basemap greyish color ranges in [0,1] (default: %(default)s).')
+    dem.add_argument('--blend-mode', dest='blend_mode', type=str, default='overlay',
+                     choices={'hsv','overlay','soft'}, metavar='STR',
+                     help='[Blend] Type of blending used to combine the colormapped data with illumated '
+                          'topography.\n(choices: %(choices)s; default: %(default)s).\n'
+                          'https://matplotlib.org/stable/gallery/specialty_plots/topographic_hillshading.html')
     return parser
 
 
-def add_figure_argument(parser):
+def add_figure_argument(parser, figsize_img=False):
     """Argument group parser for figure options"""
     fig = parser.add_argument_group('Figure', 'Figure settings for display')
     fig.add_argument('--fontsize', dest='font_size',
@@ -155,8 +185,11 @@ def add_figure_argument(parser):
     # colorbar
     fig.add_argument('--nocbar', '--nocolorbar', dest='disp_cbar',
                      action='store_false', help='do not display colorbar')
-    fig.add_argument('--cbar-nbins', dest='cbar_nbins', metavar='NUM',
-                     type=int, help='number of bins for colorbar.')
+    tik = fig.add_mutually_exclusive_group(required=False)
+    tik.add_argument('--cbar-nbins', dest='cbar_nbins', metavar='NUM', type=int,
+                     help='number of bins for colorbar.')
+    tik.add_argument('--cbar-ticks', dest='cbar_ticks', nargs='+', metavar='NUM', type=float,
+                     help='colorbar ticks.')
     fig.add_argument('--cbar-ext', dest='cbar_ext', default=None,
                      choices={'neither', 'min', 'max', 'both', None},
                      help='Extend setting of colorbar; based on data stat by default.')
@@ -177,6 +210,9 @@ def add_figure_argument(parser):
                      help='display Sentinel-1 A/B and IPF info in title.')
 
     # size, subplots number and space
+    if figsize_img:
+        fig.add_argument('--figsize-img', dest='fig_size_img', metavar=('WID', 'LEN'), type=float, nargs=2,
+                         help='figure size in inches for the image/map (for tsview.py) figure')
     fig.add_argument('--figsize', dest='fig_size', metavar=('WID', 'LEN'), type=float, nargs=2,
                      help='figure size in inches - width and length')
     fig.add_argument('--dpi', dest='fig_dpi', metavar='DPI', type=int, default=300,
@@ -199,8 +235,8 @@ def add_figure_argument(parser):
     fig.add_argument('--no-tight-layout', dest='fig_tight_layout', action='store_false',
                      help='disable automatic tight layout for multiple subplots')
 
-    fig.add_argument('--coord', dest='fig_coord', choices=['radar', 'geo'], default='geo',
-                     help='Display in radar/geo coordination system '
+    fig.add_argument('--coord', dest='fig_coord', choices=['geo','radar','yx'], default='geo',
+                     help='Display axes in geo or yx coordinates '
                           '(for geocoded file only; default: %(default)s).')
     fig.add_argument('--animation', action='store_true',
                      help='enable animation mode')
@@ -260,14 +296,26 @@ def add_mask_argument(parser):
 def add_map_argument(parser):
     """Argument group parser for map options"""
     mapg = parser.add_argument_group('Map', 'for one subplot in geo-coordinates only')
+
+    # coastline
     mapg.add_argument('--coastline', dest='coastline', type=str, choices={'10m', '50m', '110m'},
                       help="Draw coastline with specified resolution (default: %(default)s).\n"
                            "This will enable --lalo-label option.\n"
-                           "Link: https://scitools.org.uk/cartopy/docs/latest/matplotlib/geoaxes.html"
-                           "#cartopy.mpl.geoaxes.GeoAxes.coastlines")
+                           "https://scitools.org.uk/cartopy/docs/latest/reference/generated/"
+                           "cartopy.mpl.geoaxes.GeoAxes.html")
     mapg.add_argument('--coastline-lw', '--coastline-linewidth', dest='coastline_linewidth',
                       metavar='NUM', type=float, default=1,
                       help='Coastline linewidth (default: %(default)s).')
+
+    # faultline
+    mapg.add_argument('--faultline', dest='faultline_file', type=str,
+                      help='Draw fault line using specified GMT lonlat file.')
+    mapg.add_argument('--faultline-lw', '--faultline-linewidth', dest='faultline_linewidth',
+                      metavar='NUM', type=float, default=0.5,
+                      help='Faultline linewidth (default: %(default)s).')
+    mapg.add_argument('--faultline-min-dist','--faultline-min-len', dest='faultline_min_dist',
+                      metavar='NUM', type=float, default=0.1,
+                      help='Show fault segments with length >= X km (default: %(default)s).')
 
     # lalo label
     mapg.add_argument('--lalo-label', dest='lalo_label', action='store_true',
@@ -306,6 +354,8 @@ def add_map_argument(parser):
                       action='store_false', help='do not display scale bar.')
     mapg.add_argument('--scalebar-pad','--sbar-pad', dest='scalebar_pad', type=float, default=0.05,
                       help='scale bar label pad in ratio of scalebar width (default: %(default)s).')
+    mapg.add_argument('--scalebar-lw','--scalebar-linewidth', dest='scalebar_linewidth', type=float,
+                      default=2.0, help='scale bar symbol line width (default: %(default)s).')
     return parser
 
 
@@ -397,14 +447,14 @@ def add_save_argument(parser):
 def add_subset_argument(parser, geo=True):
     """Argument group parser for subset options"""
     sub = parser.add_argument_group('Subset', 'Display dataset in subset range')
-    sub.add_argument('--sub-x','--subx','--subset-x', dest='subset_x', type=int, nargs=2,
+    sub.add_argument('--sub-x','--subset-x', dest='subset_x', type=int, nargs=2,
                      metavar=('XMIN', 'XMAX'), help='subset display in x/cross-track/range direction')
-    sub.add_argument('--sub-y','--suby','--subset-y', dest='subset_y', type=int, nargs=2,
+    sub.add_argument('--sub-y','--subset-y', dest='subset_y', type=int, nargs=2,
                      metavar=('YMIN', 'YMAX'), help='subset display in y/along-track/azimuth direction')
     if geo:
-        sub.add_argument('--sub-lat','--sublat','--subset-lat', dest='subset_lat', type=float, nargs=2,
+        sub.add_argument('--sub-lat','--subset-lat', dest='subset_lat', type=float, nargs=2,
                          metavar=('LATMIN', 'LATMAX'), help='subset display in latitude')
-        sub.add_argument('--sub-lon','--sublon','--subset-lon', dest='subset_lon', type=float, nargs=2,
+        sub.add_argument('--sub-lon','--subset-lon', dest='subset_lon', type=float, nargs=2,
                          metavar=('LONMIN', 'LONMAX'), help='subset display in longitude')
     return parser
 
@@ -428,6 +478,11 @@ def add_timefunc_argument(parser):
                        help='step function(s) at YYYYMMDD (default: %(default)s). E.g.:\n'
                             '--step 20061014                        # coseismic step  at 2006-10-14T00:00\n'
                             '--step 20110311 20120928T1733          # coseismic steps at 2011-03-11T00:00 and 2012-09-28T17:33\n')
+
+    model.add_argument('--polyline', dest='polyline', type=str, nargs='+', default=[],
+                       help='polyline segment(s) starting at YYYYMMDD (default: %(default)s). E.g.:\n'
+                            '--polyline 20190101                    # extra velocity   since 2019-01-01T00:00\n'
+                            '--polyline 20190101 20200501T1725      # extra velocities since 2019-01-01T00:00 and 2020-05-01T17:25\n')
 
     model.add_argument('--exp', '--exponential', dest='exp', type=str, nargs='+', action='append', default=[],
                        help='exponential function(s) defined by onset time(s) and characteristic time(s) tau in days (default: %(default)s). E.g.:\n'
